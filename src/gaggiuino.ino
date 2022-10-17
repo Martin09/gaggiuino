@@ -155,9 +155,9 @@ static void calculateWeightAndFlow(void) {
         currentState.weightFlow = smoothScalesFlow.updateEstimate(currentState.weightFlow);
         previousWeight = shotWeight;
       } else if (currentState.isOutputFlow) {
-        previousWeight = shotWeight; // temporary measure to avoid those 30 -45 grams sudden jumps
+        // previousWeight = shotWeight; // temporary measure to avoid those 30 -45 grams sudden jumps
         shotWeight += currentState.smoothedPumpFlow * (float)elapsedTime / 1000.f;
-        if (shotWeight > previousWeight + 5.f) shotWeight = 0.f; // temporary measure to avoid those 30 -45 grams sudden jumps
+        // if (shotWeight > previousWeight + 10.f) shotWeight = 0.f; // temporary measure to avoid those 30 -45 grams sudden jumps
       }
       currentState.liquidPumped += currentState.smoothedPumpFlow * (float)elapsedTime / 1000.f;
     }
