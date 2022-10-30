@@ -1,6 +1,6 @@
 // #define SINGLE_HX711_CLOCK
 #define DEBUG_ENABLED
-// #define MAX31855_ENABLED
+#define MAX31865_ENABLED
 #define TIMERINTERRUPT_ENABLED
 #if defined(DEBUG_ENABLED) && defined(ARDUINO_ARCH_STM32)
   #include "dbg.h"
@@ -12,8 +12,8 @@
   #include <FlashStorage_STM32.h>
 #endif
 #include <EasyNextionLibrary.h>
-#if defined(MAX31855_ENABLED)
-  #include <Adafruit_MAX31855.h>
+#if defined(MAX31865_ENABLED)
+  #include <Adafruit_MAX31865.h>
 #else
   #include <max6675.h>
 #endif
@@ -31,7 +31,8 @@
   #define thermoDO 4
   #define thermoCS 5
   #define thermoCLK 6
-  #define steamPin 7
+  #define thermoDI 7 // MF: Added this!
+  #define steamPin 10 // MF: was 7
   #define relayPin 8  // PB0
   #define dimmerPin 9
   #define valvePin 3
@@ -107,8 +108,13 @@
 ADS1115 ADS(0x48);
 #endif
 //Init the thermocouples with the appropriate pins defined above with the prefix "thermo"
-#if defined(ADAFRUIT_MAX31855_H)
-  Adafruit_MAX31855 thermocouple(thermoCLK, thermoCS, thermoDO);
+#if defined(ADAFRUIT_MAX31865_H)
+  // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
+  #define RREF 430.0
+  // The 'nominal' 0-degrees-C resistance of the sensor
+  // 100.0 for PT100, 1000.0 for PT1000
+  #define RNOMINAL 100.0
+  Adafruit_MAX31865 thermo = Adafruit_MAX31865(thermoCS, thermoDI, thermoDO, thermoCLK);
 #else
   MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 #endif
@@ -261,8 +267,8 @@ void setup() {
     initPressure(myNex.readNumber("regHz"));
   #endif
 
-  #if defined(ADAFRUIT_MAX31855_H)
-    thermocouple.begin();
+  #if defined(ADAFRUIT_MAX31865_H)
+    thermo.begin(MAX31865_3WIRE);
   #endif
 
   // Scales handling
@@ -297,7 +303,11 @@ void sensorsRead() { // Reading the thermocouple temperature
   // static long thermoTimer;
   // Reading the temperature every 350ms between the loops
   if (millis() > thermoTimer) {
-    kProbeReadValue = thermocouple.readCelsius();  // Making sure we're getting a value
+    #if defined(ADAFRUIT_MAX31865_H)
+      kProbeReadValue = thermo.temperature(RNOMINAL, RREF);
+    #else
+      kProbeReadValue = thermocouple.readCelsius();  // Making sure we're getting a value
+    #endif
     /*
     This *while* is here to prevent situations where the system failed to get a temp reading and temp reads as 0 or -7(cause of the offset)
     If we would use a non blocking function then the system would keep the SSR in HIGH mode which would most definitely cause boiler overheating
@@ -307,7 +317,11 @@ void sensorsRead() { // Reading the thermocouple temperature
       we force set it to LOW while trying to get a temp reading - IMPORTANT safety feature */
       setBoiler(LOW);
       if (millis() > thermoTimer) {
-        kProbeReadValue = thermocouple.readCelsius();  // Making sure we're getting a value
+        #if defined(ADAFRUIT_MAX31865_H)
+          kProbeReadValue = thermo.temperature(RNOMINAL, RREF);
+        #else
+          kProbeReadValue = thermocouple.readCelsius();  // Making sure we're getting a value
+        #endif
         thermoTimer = millis() + GET_KTYPE_READ_EVERY;
       }
     }
